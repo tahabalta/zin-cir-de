@@ -738,19 +738,9 @@ function getRingLevel() {
 
 /* --- Tiered ring system --- */
 function getCurrentRingTier() {
-    const log = getTodayLog();
-    // Gold: all exercises with dailyTarget>=3 completed 3x
-    const goldExercises = EXERCISES.filter(ex => ex.dailyTarget >= 3);
-    const goldDone = goldExercises.every(ex => (log.completedExercises[ex.id] || 0) >= 3);
-    // Silver: all exercises with dailyTarget>=2 completed 2x
-    const silverExercises = EXERCISES.filter(ex => ex.dailyTarget >= 2);
-    const silverDone = silverExercises.every(ex => (log.completedExercises[ex.id] || 0) >= 2);
-    // Bronze: all 9 completed at least 1x
-    const bronzeDone = allExercisesCompletedNTimes(1);
-
-    if (bronzeDone && silverDone && goldDone) return 'gold';
-    if (bronzeDone && silverDone) return 'silver';
-    if (bronzeDone) return 'bronze';
+    if (allExercisesCompletedNTimes(3)) return 'gold';
+    if (allExercisesCompletedNTimes(2)) return 'silver';
+    if (allExercisesCompletedNTimes(1)) return 'bronze';
     return null;
 }
 
