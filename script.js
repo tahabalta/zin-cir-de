@@ -659,7 +659,7 @@ function getCurrentRound() {
 /* --- Check if all exercises have been completed at least N times --- */
 function allExercisesCompletedNTimes(n) {
     const log = getTodayLog();
-    return EXERCISES.every(ex => (log.completedExercises[ex.id] || 0) >= n);
+    return EXERCISES.every(ex => (log.completedExercises[ex.id] || 0) >= Math.min(n, ex.dailyTarget));
 }
 
 /* --- Lock status for an exercise --- */
@@ -797,10 +797,6 @@ function completeExercise(exerciseId) {
                 appData.streak.longest = appData.streak.current;
             }
         }
-    }
-
-    if (allDone && !log.allCompleted) {
-        log.allCompleted = true;
     }
 
     saveData();
