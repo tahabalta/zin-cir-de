@@ -390,13 +390,29 @@ body {
 .chain-container {
     display: flex;
     align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
     gap: 0;
     min-height: 80px;
-    padding: var(--space-md);
+    padding: var(--space-md) var(--space-xl);
     margin-bottom: var(--space-lg);
     position: relative;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.chain-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.chain-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.chain-container::-webkit-scrollbar-thumb {
+    background: rgba(212, 168, 83, 0.2);
+    border-radius: 2px;
 }
 
 /* Individual Chain Ring */
@@ -407,6 +423,7 @@ body {
     border-radius: 50%;
     position: relative;
     margin-right: -10px;
+    flex-shrink: 0;
     transition: all 0.4s var(--ease-spring);
     background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.15), transparent 60%);
 }
@@ -432,6 +449,36 @@ body {
 .chain-ring.silver {
     border-color: #C0C0C0;
     box-shadow: 0 0 10px rgba(192, 192, 192, 0.4), inset 0 0 6px rgba(192, 192, 192, 0.15);
+}
+
+.chain-ring.empty {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-style: dashed;
+    background: transparent;
+    box-shadow: none;
+}
+
+.chain-ring.today {
+    border-width: 4px;
+    z-index: 10;
+}
+
+.chain-ring.today.empty {
+    animation: ringPulse 2s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+
+    0%,
+    100% {
+        transform: scale(1) rotate(15deg);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1.1) rotate(15deg);
+        opacity: 1;
+    }
 }
 
 .chain-ring.gold.shine {

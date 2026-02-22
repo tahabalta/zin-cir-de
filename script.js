@@ -146,6 +146,7 @@ let currentDriveFileId = null;
 let appData = {
     streak: { current: 0, longest: 0, lastCompleted: null },
     dailyLog: {},
+    ringLevels: {}, // { "2026-02-22": 3, "2026-02-21": 2, ... } 0=gray, 1=bronze, 2=silver, 3=gold
     lastUpdated: 0
 };
 
@@ -359,12 +360,30 @@ async function loadFromDrive() {
                 if (!appData.streak) appData.streak = { current: 0, longest: 0, lastCompleted: null };
                 if (!appData.dailyLog) appData.dailyLog = {};
 
+                // MIGRATION: Backfill ringLevels if it's missing but user has a streak
+                if (!appData.ringLevels) {
+                    appData.ringLevels = {};
+                    const streakCount = appData.streak.current || 0;
+                    const lastComp = appData.streak.lastCompleted;
+                    if (streakCount > 0 && lastComp) {
+                        try {
+                            const lastDate = new Date(lastComp + 'T00:00:00');
+                            for (let i = 0; i < streakCount; i++) {
+                                const d = new Date(lastDate);
+                                d.setDate(d.getDate() - i);
+                                const dateStr = d.toISOString().split('T')[0];
+                                appData.ringLevels[dateStr] = 3; // Mark historical streak as Gold
+                            }
+                        } catch (e) { console.error("Migration backfill failed", e); }
+                    }
+                }
+
                 if (ui.syncStatus) ui.syncStatus.textContent = "Senkronize";
             }
         } else {
             console.log("No Drive file found. Starting fresh.");
             if (ui.syncStatus) ui.syncStatus.textContent = "Yeni Başlangıç";
-            appData = { streak: { current: 0, longest: 0, lastCompleted: null }, dailyLog: {}, lastUpdated: 0 };
+            appData = { streak: { current: 0, longest: 0, lastCompleted: null }, dailyLog: {}, ringLevels: {}, lastUpdated: 0 };
         }
 
         if (ui.syncStatus) ui.syncStatus.className = "sync-status";
@@ -468,15 +487,14 @@ function daysBetween(dateStr1, dateStr2) {
 
 function checkStreakBreak() {
     const today = getLocalDateString();
-    const lastCompleted = appData.streak.lastCompleted;
+    const yesterday = getYesterdayDateString();
 
-    if (!lastCompleted) return; // No streak to break
+    // Check if yesterday was completed at least to Bronze level
+    const yesterdayLevel = appData.ringLevels[yesterday] || 0;
 
-    const gap = daysBetween(lastCompleted, today);
-
-    if (gap > 1 && appData.streak.current > 0) {
+    if (yesterdayLevel === 0 && appData.streak.current > 0) {
         // STREAK BROKEN!
-        console.log(`Streak broken! Gap: ${gap} days, was: ${appData.streak.current}`);
+        console.log(`Streak broken! Yesterday (${yesterday}) was not completed.`);
         appData.streak.current = 0;
         saveData();
         showChainBreak();
@@ -586,6 +604,15 @@ function getExerciseLockStatus(exerciseId) {
     return { locked: false };
 }
 
+/* --- Tiered ring level (0-3) --- */
+function getRingLevel() {
+    const tier = getCurrentRingTier();
+    if (tier === 'gold') return 3;
+    if (tier === 'silver') return 2;
+    if (tier === 'bronze') return 1;
+    return 0;
+}
+
 /* --- Tiered ring system --- */
 function getCurrentRingTier() {
     const log = getTodayLog();
@@ -619,36 +646,38 @@ function completeExercise(exerciseId) {
     // Track last completed exercise (for consecutive lock)
     log.lastCompletedExerciseId = exerciseId;
 
-    // Check if ALL exercises are done (all daily targets met)
-    const allDone = EXERCISES.every(ex => {
-        const count = log.completedExercises[ex.id] || 0;
-        return count >= ex.dailyTarget;
-    });
+    // Check if ALL exercises are done (at least Bronze tier)
+    const currentLevel = getRingLevel();
+    const today = getLocalDateString();
+    const oldLevel = appData.ringLevels[today] || 0;
 
-    if (allDone && !log.allCompleted) {
-        log.allCompleted = true;
-        const today = getLocalDateString();
-        const yesterday = getYesterdayDateString();
+    if (currentLevel > oldLevel) {
+        appData.ringLevels[today] = currentLevel;
 
-        if (appData.streak.lastCompleted === yesterday || appData.streak.lastCompleted === today) {
-            if (appData.streak.lastCompleted !== today) {
+        // Streak increase ONLY on reaching Bronze (level 1)
+        if (currentLevel === 1) {
+            const yesterday = getYesterdayDateString();
+
+            if (appData.streak.lastCompleted === yesterday) {
                 appData.streak.current += 1;
+            } else if (appData.streak.lastCompleted !== today) {
+                appData.streak.current = 1;
             }
-        } else if (!appData.streak.lastCompleted) {
-            appData.streak.current = 1;
-        } else {
-            appData.streak.current = 1;
-        }
 
-        appData.streak.lastCompleted = today;
+            appData.streak.lastCompleted = today;
 
-        if (appData.streak.current > appData.streak.longest) {
-            appData.streak.longest = appData.streak.current;
+            if (appData.streak.current > appData.streak.longest) {
+                appData.streak.longest = appData.streak.current;
+            }
         }
 
         if (navigator.vibrate) {
             navigator.vibrate([50, 50, 50, 50, 200]);
         }
+    }
+
+    if (allDone && !log.allCompleted) {
+        log.allCompleted = true;
     }
 
     saveData();
@@ -720,52 +749,43 @@ function renderChain() {
 
     container.innerHTML = '';
 
-    if (streak === 0) {
-        // Show today's progress toward first ring
-        const tier = getCurrentRingTier();
-        if (!tier) {
-            const doneCount = EXERCISES.filter(ex => (getTodayLog().completedExercises[ex.id] || 0) >= 1).length;
-            container.innerHTML = `
-                <div class="chain-empty">
-                    <div class="chain-empty-icon">🔗</div>
-                    <p>${doneCount}/9 hareket tamamlandı — ilk halka için hepsini bitir!</p>
-                </div>
-            `;
-        } else {
-            container.innerHTML = `
-                <div class="chain-empty">
-                    <div class="chain-empty-icon">🔗</div>
-                    <p>Tüm egzersizleri tamamlayarak ilk halkanı ekle!</p>
-                </div>
-            `;
+    // Get all dates from ringLevels and sort them
+    const historicalDates = Object.keys(appData.ringLevels).sort();
+    const today = getLocalDateString();
+
+    // If today is not in historicalDates, add it with level 0
+    if (!appData.ringLevels[today]) {
+        if (!historicalDates.includes(today)) {
+            historicalDates.push(today);
         }
-        return;
     }
 
-    // Get today's ring tier for the current (last) ring
-    const todayTier = getCurrentRingTier() || 'bronze';
+    const levelClasses = ['empty', 'bronze', 'silver', 'gold'];
 
-    // Render chain rings (max 30 visible)
-    const visibleRings = Math.min(streak, 30);
-    for (let i = 0; i < visibleRings; i++) {
+    historicalDates.forEach((date, index) => {
+        const level = appData.ringLevels[date] || 0;
         const ring = document.createElement('div');
+        ring.className = `chain-ring ${levelClasses[level]}`;
 
-        // Last ring = today's tier, older rings = gold (they earned it)
-        if (i === visibleRings - 1) {
-            ring.className = `chain-ring ${todayTier} shine`;
-        } else {
-            ring.className = 'chain-ring gold';
+        // Add shine to today's ring if it has any level, or if it's the last ring
+        if (date === today) {
+            ring.classList.add('today');
+            if (level > 0) ring.classList.add('shine');
+        } else if (level > 0) {
+            // Historical rings that were completed
+            ring.classList.add('completed-historical');
         }
+
+        // Add date tooltip
+        ring.title = date;
 
         container.appendChild(ring);
-    }
+    });
 
-    if (streak > 30) {
-        const more = document.createElement('div');
-        more.style.cssText = 'color: var(--text-muted); font-size: 0.8rem; padding: 0 8px; align-self: center;';
-        more.textContent = `+${streak - 30}`;
-        container.appendChild(more);
-    }
+    // Auto-scroll to the end (today's ring)
+    setTimeout(() => {
+        container.scrollLeft = container.scrollWidth;
+    }, 100);
 }
 
 function renderProgress() {
@@ -792,8 +812,12 @@ function renderProgress() {
         else progressBar.style.background = '';
     }
     if (progressCount) {
-        const tierLabel = tier ? ` • ${tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉'}` : '';
-        progressCount.textContent = `${completedCount}/${total}${tierLabel}`;
+        let tierInfo = '';
+        if (tier === 'gold') tierInfo = ' • 🏆 Altın Halka!';
+        else if (tier === 'silver') tierInfo = ' • 🥈 Gümüş Halka';
+        else if (tier === 'bronze') tierInfo = ' • 🥉 Bronz Halka';
+
+        progressCount.textContent = `${completedCount}/${total}${tierInfo}`;
     }
 }
 
