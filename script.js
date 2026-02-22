@@ -162,6 +162,89 @@ let currentExerciseId = null;
 let currentReps = 0;
 
 /* ====================================================
+   FEEDBACK MANAGER (Audio & Haptics)
+   ==================================================== */
+
+const FeedbackManager = {
+    audioContext: null,
+    isUnlocked: false,
+
+    unlockAudio() {
+        if (this.isUnlocked) return;
+
+        // Resume AudioContext
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+
+        // Dummy sound to trigger unlock on iOS/Mobile
+        const b = this.audioContext.createBuffer(1, 1, 22050);
+        const s = this.audioContext.createBufferSource();
+        s.buffer = b;
+        s.connect(this.audioContext.destination);
+        s.start(0);
+
+        // Pre-warm SpeechSynthesis
+        if (window.speechSynthesis) {
+            const utter = new SpeechSynthesisUtterance('');
+            utter.volume = 0;
+            window.speechSynthesis.speak(utter);
+        }
+
+        this.isUnlocked = true;
+        console.log("Audio feedback unlocked and ready.");
+    },
+
+    playSuccess() {
+        if (!this.audioContext) return;
+
+        const now = this.audioContext.currentTime;
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+
+        osc.type = 'sine';
+        // Satisfying chime: C5 to C6
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.1);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+        osc.connect(gain);
+        gain.connect(this.audioContext.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.6);
+    },
+
+    speak(text) {
+        if (!window.speechSynthesis) return;
+
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'tr-TR';
+        utter.rate = 1.0;
+        utter.pitch = 1.0;
+        utter.volume = 1.0;
+
+        window.speechSynthesis.speak(utter);
+    },
+
+    vibrate(pattern = [100]) {
+        if (navigator.vibrate) {
+            navigator.vibrate(pattern);
+        }
+    }
+};
+
+/* ====================================================
    GOOGLE AUTH (Same pattern as Ta-Ta)
    ==================================================== */
 
@@ -679,6 +762,10 @@ function completeExercise(exerciseId) {
     const today = getLocalDateString();
     const oldLevel = appData.ringLevels[today] || 0;
 
+    // Feedback: Chime & Vibration
+    FeedbackManager.playSuccess();
+    FeedbackManager.vibrate([50, 30, 50]);
+
     if (currentLevel > oldLevel) {
         appData.ringLevels[today] = currentLevel;
 
@@ -697,10 +784,6 @@ function completeExercise(exerciseId) {
             if (appData.streak.current > appData.streak.longest) {
                 appData.streak.longest = appData.streak.current;
             }
-        }
-
-        if (navigator.vibrate) {
-            navigator.vibrate([50, 50, 50, 50, 200]);
         }
     }
 
@@ -722,7 +805,11 @@ function advanceToNextExercise(currentId) {
         const lock = getExerciseLockStatus(nextEx.id);
         if (!lock.locked) {
             // Small delay for UX
-            setTimeout(() => openExerciseModal(nextEx.id), 600);
+            setTimeout(() => {
+                FeedbackManager.speak(`Sıradaki hareket: ${nextEx.name}`);
+                FeedbackManager.vibrate(100);
+                openExerciseModal(nextEx.id);
+            }, 600);
             return;
         }
     }
@@ -1032,14 +1119,13 @@ function startTimer() {
         // Side switch alert at halfway
         if (timerSwitchAt !== null && timerSeconds === timerSwitchAt && !switchAlertShown) {
             switchAlertShown = true;
+            FeedbackManager.speak("Taraf değiştir");
             showSwitchAlert();
         }
 
         if (timerSeconds <= 0) {
             timerSeconds = 0;
             stopTimer();
-
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
             const btn = document.getElementById('btn-timer-start');
             if (btn) {
@@ -1061,22 +1147,6 @@ function startTimer() {
 }
 
 function showSwitchAlert() {
-    // Haptic
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
-    // Audio beep
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 880;
-        gain.gain.value = 0.3;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-    } catch (e) { /* audio not available */ }
-
     // Visual overlay
     const switchLabel = document.getElementById('timer-switch-label');
     if (switchLabel) {
@@ -1173,6 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auth
     if (ui.authBtn) {
         ui.authBtn.onclick = () => {
+            FeedbackManager.unlockAudio();
             autoPopupAttempted = false;
             if (tokenClient) {
                 tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -1210,7 +1281,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Timer controls
     const btnTimerStart = document.getElementById('btn-timer-start');
-    if (btnTimerStart) btnTimerStart.onclick = () => startTimer();
+    if (btnTimerStart) {
+        btnTimerStart.onclick = () => {
+            FeedbackManager.unlockAudio();
+            startTimer();
+        };
+    }
 
     const btnTimerReset = document.getElementById('btn-timer-reset');
     if (btnTimerReset) btnTimerReset.onclick = () => {
