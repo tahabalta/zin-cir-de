@@ -924,15 +924,11 @@ function renderChain() {
 
 function renderProgress() {
     const log = getTodayLog();
+    const level = getRingLevel();
     const tier = getCurrentRingTier();
-    let completedCount = 0;
 
-    EXERCISES.forEach(ex => {
-        if (isExerciseDoneToday(ex.id)) completedCount++;
-    });
-
-    const total = EXERCISES.length;
-    const pct = (completedCount / total) * 100;
+    const total = 3;
+    const pct = (level / total) * 100;
 
     const progressBar = document.getElementById('progress-bar');
     const progressCount = document.getElementById('progress-count');
@@ -942,16 +938,16 @@ function renderProgress() {
         // Color bar by tier
         if (tier === 'gold') progressBar.style.background = 'linear-gradient(90deg, #D4A853, #F5D98C)';
         else if (tier === 'silver') progressBar.style.background = 'linear-gradient(90deg, #A8A8A8, #D4D4D4)';
-        else if (tier === 'bronze') progressBar.style.background = 'linear-gradient(90deg, #CD7F32, #E8A862)';
+        else if (tier === 'bronze') progressBar.style.background = 'linear-gradient(90deg, #CD7F32, #8C4B2D)';
         else progressBar.style.background = '';
     }
     if (progressCount) {
-        let tierInfo = '';
-        if (tier === 'gold') tierInfo = ' • 🏆 Altın Halka!';
-        else if (tier === 'silver') tierInfo = ' • 🥈 Gümüş Halka';
-        else if (tier === 'bronze') tierInfo = ' • 🥉 Bronz Halka';
+        let tierInfo = 'Başlamadı';
+        if (tier === 'gold') tierInfo = 'Altın Halka';
+        else if (tier === 'silver') tierInfo = 'Gümüş Halka';
+        else if (tier === 'bronze') tierInfo = 'Bronz Halka';
 
-        progressCount.textContent = `${completedCount}/${total}${tierInfo}`;
+        progressCount.textContent = `${level}/${total} • ${tierInfo}`;
     }
 }
 

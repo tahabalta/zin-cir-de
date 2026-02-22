@@ -443,7 +443,8 @@ body {
 
 .chain-ring.bronze {
     border-color: #CD7F32;
-    box-shadow: 0 0 10px rgba(205, 127, 50, 0.3), inset 0 0 6px rgba(205, 127, 50, 0.1);
+    box-shadow: 0 0 10px rgba(205, 127, 50, 0.3), inset 0 0 6px rgba(140, 75, 45, 0.2);
+    background: radial-gradient(ellipse at 30% 30%, rgba(205, 127, 50, 0.2), transparent 70%);
 }
 
 .chain-ring.silver {
@@ -511,12 +512,12 @@ body {
 
     0%,
     100% {
-        box-shadow: 0 0 10px rgba(205, 127, 50, 0.3);
+        box-shadow: 0 0 10px rgba(205, 127, 50, 0.3), inset 0 0 6px rgba(140, 75, 45, 0.2);
         border-color: #CD7F32;
     }
 
     50% {
-        box-shadow: 0 0 20px rgba(205, 127, 50, 0.5);
+        box-shadow: 0 0 20px rgba(205, 127, 50, 0.5), inset 0 0 10px rgba(140, 75, 45, 0.4);
         border-color: #E8A862;
     }
 }
