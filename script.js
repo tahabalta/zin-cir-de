@@ -390,6 +390,7 @@ async function loadFromDrive() {
 
         // Check streak break BEFORE rendering
         checkStreakBreak();
+        syncTodayRingLevel(); // Ensure today's ring is accurate
         renderApp();
 
     } catch (err) {
@@ -604,6 +605,33 @@ function getExerciseLockStatus(exerciseId) {
     return { locked: false };
 }
 
+/* --- Sync today's ring level based on actual completions --- */
+function syncTodayRingLevel() {
+    const today = getLocalDateString();
+    const currentLevel = getRingLevel();
+    const oldLevel = appData.ringLevels[today] || 0;
+
+    if (currentLevel > oldLevel) {
+        appData.ringLevels[today] = currentLevel;
+
+        // Ensure streak is updated if they reached Bronze (level 1+)
+        if (currentLevel >= 1 && appData.streak.lastCompleted !== today) {
+            const yesterday = getYesterdayDateString();
+            if (appData.streak.lastCompleted === yesterday) {
+                appData.streak.current += 1;
+            } else {
+                appData.streak.current = 1;
+            }
+            appData.streak.lastCompleted = today;
+            if (appData.streak.current > appData.streak.longest) {
+                appData.streak.longest = appData.streak.current;
+            }
+        }
+        // saveData() will be called by the caller if needed, or we call it here
+        syncToDrive(); // Use syncToDrive directly to avoid renderApp loop if called from renderApp
+    }
+}
+
 /* --- Tiered ring level (0-3) --- */
 function getRingLevel() {
     const tier = getCurrentRingTier();
@@ -763,7 +791,14 @@ function renderChain() {
     const levelClasses = ['empty', 'bronze', 'silver', 'gold'];
 
     historicalDates.forEach((date, index) => {
-        const level = appData.ringLevels[date] || 0;
+        let level = appData.ringLevels[date] || 0;
+
+        // Live update for today
+        if (date === today) {
+            const liveLevel = getRingLevel();
+            if (liveLevel > level) level = liveLevel;
+        }
+
         const ring = document.createElement('div');
         ring.className = `chain-ring ${levelClasses[level]}`;
 
