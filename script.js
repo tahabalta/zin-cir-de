@@ -444,7 +444,7 @@ async function loadFromDrive() {
                 if (!appData.dailyLog) appData.dailyLog = {};
 
                 // MIGRATION: Backfill ringLevels if it's missing but user has a streak
-                if (!appData.ringLevels) {
+                if (!appData.ringLevels || Object.keys(appData.ringLevels).length === 0) {
                     appData.ringLevels = {};
                     const streakCount = appData.streak.current || 0;
                     const lastComp = appData.streak.lastCompleted;
@@ -454,7 +454,8 @@ async function loadFromDrive() {
                             for (let i = 0; i < streakCount; i++) {
                                 const d = new Date(lastDate);
                                 d.setDate(d.getDate() - i);
-                                const dateStr = d.toISOString().split('T')[0];
+                                // FIX: Use local date string instead of toISOString
+                                const dateStr = getLocalDateString(d);
                                 appData.ringLevels[dateStr] = 3; // Mark historical streak as Gold
                             }
                         } catch (e) { console.error("Migration backfill failed", e); }
@@ -545,11 +546,10 @@ function saveData() {
    STREAK LOGIC
    ==================================================== */
 
-function getLocalDateString() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
+function getLocalDateString(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
 
@@ -575,6 +575,18 @@ function checkStreakBreak() {
 
     // Check if yesterday was completed at least to Bronze level
     const yesterdayLevel = appData.ringLevels[yesterday] || 0;
+
+    // RECOVERY LOGIC: If streak is 0 but it was completed yesterday, restore it.
+    // This handles the timezone migration bug where ringLevels[yesterday] might have been missed.
+    if (appData.streak.current === 0 && appData.streak.lastCompleted === yesterday) {
+        console.log("Recovery: Restoring streak because yesterday was completed.");
+        // Try to find the previous streak count if possible, otherwise set to 1
+        // (Since we set current=0, we might have lost the count, but let's try to assume 1 or fix it)
+        appData.streak.current = 1;
+        appData.ringLevels[yesterday] = 3; // Ensure it's marked as done
+        saveData();
+        return;
+    }
 
     if (yesterdayLevel === 0 && appData.streak.current > 0) {
         // STREAK BROKEN!
