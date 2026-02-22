@@ -571,26 +571,26 @@ function daysBetween(dateStr1, dateStr2) {
 
 function checkStreakBreak() {
     const today = getLocalDateString();
-    const yesterday = getYesterdayDateString();
+    const lastComp = appData.streak.lastCompleted;
 
-    // Check if yesterday was completed at least to Bronze level
-    const yesterdayLevel = appData.ringLevels[yesterday] || 0;
-
-    // RECOVERY LOGIC: If streak is 0 but it was completed yesterday, restore it.
-    // This handles the timezone migration bug where ringLevels[yesterday] might have been missed.
-    if (appData.streak.current === 0 && appData.streak.lastCompleted === yesterday) {
-        console.log("Recovery: Restoring streak because yesterday was completed.");
-        // Try to find the previous streak count if possible, otherwise set to 1
-        // (Since we set current=0, we might have lost the count, but let's try to assume 1 or fix it)
+    // SELF-CORRECTION: If user has completed something today but streak is 0
+    const todayLevel = appData.ringLevels[today] || 0;
+    if (todayLevel >= 1 && appData.streak.current === 0) {
+        console.log("Self-Correction: Restoring streak to 1 because today is already active.");
         appData.streak.current = 1;
-        appData.ringLevels[yesterday] = 3; // Ensure it's marked as done
+        appData.streak.lastCompleted = today;
         saveData();
         return;
     }
 
-    if (yesterdayLevel === 0 && appData.streak.current > 0) {
-        // STREAK BROKEN!
-        console.log(`Streak broken! Yesterday (${yesterday}) was not completed.`);
+    if (!lastComp) return; // New user with no history
+
+    const gap = daysBetween(lastComp, today);
+
+    // GAP LOGIC: Only break if gap > 1 (meaning last completed was before yesterday)
+    // Gap 0 = Today, Gap 1 = Yesterday -> Chain stays intact
+    if (gap > 1 && appData.streak.current > 0) {
+        console.log(`Streak broken! Gap is ${gap} days. Last completed: ${lastComp}`);
         appData.streak.current = 0;
         saveData();
         showChainBreak();
