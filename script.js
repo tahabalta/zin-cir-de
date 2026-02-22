@@ -901,10 +901,10 @@ function renderChain() {
         const ring = document.createElement('div');
         ring.className = `chain-ring ${levelClasses[level]}`;
 
-        // Add shine to today's ring if it has any level, or if it's the last ring
+        // Add shine to today's ring only if it's Silver or Gold (level > 1)
         if (date === today) {
             ring.classList.add('today');
-            if (level > 0) ring.classList.add('shine');
+            if (level > 1) ring.classList.add('shine');
         } else if (level > 0) {
             // Historical rings that were completed
             ring.classList.add('completed-historical');
