@@ -56,8 +56,8 @@ const EXERCISES = [
     {
         id: 4,
         name: 'Diyafram Nefesi',
-        duration: '5 Dakika',
-        durationSeconds: 300,
+        duration: '2 Dakika',
+        durationSeconds: 120,
         bilateral: false,
         type: 'timed',
         reps: null,
@@ -113,8 +113,8 @@ const EXERCISES = [
         bilateral: false,
         type: 'reps',
         reps: 12,
-        frequency: 'Günde 2 Kez',
-        dailyTarget: 2,
+        frequency: 'Günde 3 Kez',
+        dailyTarget: 3,
         description: 'Kürek kemiği kaslarını aktive eder; omuzların kendiliğinden dik durmasını sağlar.',
         instructions: 'Sırtını duvara yasla. Kollarını "W" yapıp duvara yapıştır. Duvarla temasını kesmeden kollarını yukarı "Y" yapacak kaydır.'
     },
@@ -126,8 +126,8 @@ const EXERCISES = [
         bilateral: false,
         type: 'reps',
         reps: 12,
-        frequency: 'Günde 1 Kez',
-        dailyTarget: 1,
+        frequency: 'Günde 3 Kez',
+        dailyTarget: 3,
         description: 'Core bölgesini "korse" gibi güçlendirir; ayaktayken oluşan bel ağrısını keser.',
         instructions: 'Eller ve dizler üzerindeyken; sağ kolunu ileri, sol bacağını geri uzat. Dengenizi bozma, dümdüz bir çizgi ol. Sonra taraf değiştir.'
     }
